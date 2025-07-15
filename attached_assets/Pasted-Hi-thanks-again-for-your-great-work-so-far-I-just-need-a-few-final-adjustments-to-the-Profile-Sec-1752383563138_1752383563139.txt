@@ -1,0 +1,71 @@
+Hi, thanks again for your great work so far!
+
+I just need a few final adjustments to the Profile Section so it fully matches my original requirements. Please see the updated instructions below:
+
+📍 Profile Section – Final Requirements:
+1. Filtering & Search:
+At the top of the Profile Section, include filtering options:
+
+Filter by: Date, Gender, Profession, Birth Year, Height, Age
+
+Include a Search button next to the filters
+
+When clicked, this should display the filtered results below
+
+2. Profile Display Layout:
+Profiles should appear as large cards/boxes, not in a table
+
+Each card should contain:
+
+Left side: Profile picture
+
+Right side: Profile details – Name, Gender, Age, Profession, Height, etc.
+
+Bottom right: A small Download button for the profile’s document
+
+Layout: Show 2 profiles per row, with proper spacing
+
+Each profile box should have a soft shadow for a premium look
+
+Style and colors must match the overall site theme and logo
+
+3. Data Flow:
+When I add a profile using the “Add Profile” button (top right corner), it should automatically be displayed in the Profile Section below
+
+That Profile Section becomes the main view for all added profiles with filter/search support
+
+🖱️ 4. Profile Card Click – Popup Modal:
+When a user clicks on any profile card, a centered modal popup should appear
+
+The background should blur while the popup is active (glassmorphism effect or soft blur)
+
+The modal should look modern and smooth (rounded corners, clean UI)
+
+✅ Modal Content:
+Profile Picture (large)
+
+Name
+
+Gender
+
+Age
+
+Profession
+
+Height
+
+Download Button (for document)
+
+Close Button (top-right or below)
+
+🎨 UI Notes:
+The popup should include smooth animations (like fade-in and scale-up)
+
+Background blur must not freeze the page — it should just give a soft focus
+
+All designs must be visually consistent with the rest of the application
+
+This will fully complete the Profile Section to align with the original concept.
+Let me know if you need the full script again or a design reference.
+
+Thanks a lot for your continued effort!

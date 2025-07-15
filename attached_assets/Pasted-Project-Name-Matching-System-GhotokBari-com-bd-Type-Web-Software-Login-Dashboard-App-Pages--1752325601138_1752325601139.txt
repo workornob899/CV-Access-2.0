@@ -1,0 +1,191 @@
+Project Name: Matching System (GhotokBari.com.bd)
+Type: Web Software (Login + Dashboard App)
+Pages:
+
+Login Page
+
+Home Page (Dashboard + Matching System + Profile Manager + Settings)
+
+🔐 Login Page
+Top-left: Company logo (uploaded image)
+
+Below logo, display title text: “GHOTOKBARI.COM.BD”
+
+Below title, show the following stats:
+
+Total Verified Profiles: 7000+
+
+Daily Added Profiles: 50–70
+
+High Profiles: 5000+
+
+Right side: Login/Registration Box
+
+Login Button opens a popup box with:
+
+Title: Login
+
+Fields: Email & Password
+
+Admin credentials: admin12345 / admin12345
+
+Registration Button: Non-functional (does nothing)
+
+🎨 UI Requirements (Login Page):
+High color grading, logo-matching colors
+
+Expensive-looking buttons and fonts
+
+Box shadow and animations throughout
+
+Clean and modern visual quality
+
+🏠 Home Page
+Top-right: Company logo
+
+Top-left: Title text: “Auto Matching System”
+
+Subtext under title: “Only use company staff”
+
+Sidebar menu (hidden by default, toggled on click):
+
+Dashboard
+
+Profile Section
+
+Settings
+
+📊 Dashboard
+Overview section with monitoring metrics:
+
+Total Profiles
+
+Bride Profiles
+
+Groom Profiles
+
+Use professional, high-end UI with live/animated data panels
+
+👤 Profile Section
+🔍 Filter Panel:
+Filter by:
+
+Date
+
+Gender
+
+Profession
+
+Birth Year
+
+Height
+
+Age
+
+Button: Search → shows results below
+
+♻️ Matching System:
+Toggle between Bride and Groom mode
+
+Opens popup:
+
+Title: “Fill your bride or groom information”
+
+Fields:
+
+Name
+
+Picture Upload (with live preview)
+
+Age
+
+Gender
+
+Profession
+
+Height
+
+Button: Match
+
+Plays animated “lottery-style” effect for 5–7 seconds
+
+Shows matching result
+
+✅ Matching Logic:
+Matches pulled from profiles already added to system
+
+Rules:
+
+Bride must be 3–6 years younger than groom
+
+Bride must be 6–8 inches shorter than groom
+
+Groom’s profession is required, bride’s is optional
+
+Always match opposite gender (Male ↔ Female)
+
+No repeated results shown immediately (delay if same match repeats)
+
+Matching result will show both profiles side-by-side:
+
+Profile picture (large)
+
+Name, Age, Gender, Profession, Height
+
+📦 Profile Display:
+Show all profiles in box format, not table
+
+Each box includes:
+
+Left: Profile Picture
+
+Right: Profile Info
+
+Layout: Two boxes per row
+
+Size: Large, clearly visible details
+
+Soft shadow backgrounds
+
+Bottom-right: Small Download button (downloads attached document)
+
+➕ Add Profile (Popup Form):
+Triggered by top-right “Add Profile” button
+
+Opens modal form with fields:
+
+Name
+
+Gender
+
+Profession
+
+Height
+
+Upload Profile Picture
+
+Upload Document
+
+Button: Add → Adds data to system and enables it for matching
+
+⚙️ Settings Section:
+Title: Account Settings
+
+Features:
+
+Change or Update Email
+
+Change or Update Password
+
+Includes input validation, feedback messages, and Save button
+
+All elements styled consistently with logo color and high-end animation
+
+🌈 Global Requirements:
+All colors (buttons, text, backgrounds) must match the logo
+
+Use high-quality animations and transitions
+
+Build the UI to be responsive and fully professional
+
+Ensure the entire system is easy to use and visually modern
