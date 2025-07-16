@@ -6,6 +6,7 @@ export interface MatchingCriteria {
   gender: string;
   profession?: string;
   maritalStatus?: string;
+  religion?: string;
   height: string;
 }
 
@@ -86,8 +87,15 @@ export function calculateCompatibilityScore(
     }
   }
 
+  // Add points for religion compatibility
+  if (inputCriteria.religion && matchedProfile.religion) {
+    if (inputCriteria.religion === matchedProfile.religion) {
+      score += 4; // Bonus for matching religion
+    }
+  }
+
   // Add random variation for realistic scoring
-  score += Math.floor(Math.random() * 10);
+  score += Math.floor(Math.random() * 8);
 
   return Math.min(score, 100);
 }

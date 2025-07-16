@@ -23,6 +23,8 @@ export interface IStorage {
     birthYear: number;
     height: string;
     age: number;
+    maritalStatus: string;
+    religion: string;
     date: string;
   }>): Promise<Profile[]>;
   getProfilesByGender(gender: string): Promise<Profile[]>;
@@ -158,6 +160,8 @@ export class DatabaseStorage implements IStorage {
     birthYear: number;
     height: string;
     age: number;
+    maritalStatus: string;
+    religion: string;
     date: string;
   }>): Promise<Profile[]> {
     let query = this.db.select().from(profiles);
@@ -184,6 +188,14 @@ export class DatabaseStorage implements IStorage {
       const currentYear = new Date().getFullYear();
       const birthYear = currentYear - filters.age;
       conditions.push(eq(profiles.birthYear, birthYear));
+    }
+    
+    if (filters.maritalStatus) {
+      conditions.push(eq(profiles.maritalStatus, filters.maritalStatus));
+    }
+    
+    if (filters.religion) {
+      conditions.push(eq(profiles.religion, filters.religion));
     }
     
     if (conditions.length > 0) {
@@ -426,6 +438,8 @@ export class MemoryStorage implements IStorage {
     birthYear: number;
     height: string;
     age: number;
+    maritalStatus: string;
+    religion: string;
     date: string;
   }>): Promise<Profile[]> {
     let results = [...this.profiles];
@@ -450,6 +464,14 @@ export class MemoryStorage implements IStorage {
       const currentYear = new Date().getFullYear();
       const birthYear = currentYear - filters.age;
       results = results.filter(p => p.birthYear === birthYear);
+    }
+    
+    if (filters.maritalStatus) {
+      results = results.filter(p => p.maritalStatus === filters.maritalStatus);
+    }
+    
+    if (filters.religion) {
+      results = results.filter(p => p.religion === filters.religion);
     }
     
     return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

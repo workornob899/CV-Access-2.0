@@ -11,7 +11,7 @@ import { Heart, UserCheck, UserX, Calendar, Briefcase, Ruler, Star } from "lucid
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { GENDERS, HEIGHT_OPTIONS, PROFESSION_OPTIONS, QUALIFICATION_OPTIONS, AGE_OPTIONS, MARITAL_STATUS_OPTIONS, getCombinedOptions } from "@/lib/constants";
+import { GENDERS, HEIGHT_OPTIONS, PROFESSION_OPTIONS, QUALIFICATION_OPTIONS, AGE_OPTIONS, MARITAL_STATUS_OPTIONS, RELIGION_OPTIONS, getCombinedOptions } from "@/lib/constants";
 import { Profile } from "@shared/schema";
 
 interface MatchingModalProps {
@@ -41,6 +41,7 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
     profession: "",
     qualification: "",
     maritalStatus: "",
+    religion: "",
     height: "",
   });
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
@@ -54,18 +55,20 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
     gender: [GENDERS.MALE, GENDERS.FEMALE],
     age: AGE_OPTIONS,
     maritalStatus: MARITAL_STATUS_OPTIONS,
+    religion: RELIGION_OPTIONS,
   });
 
   // Function to refresh dynamic options
   const refreshDynamicOptions = async () => {
     try {
-      const [professionOptions, qualificationOptions, heightOptions, genderOptions, ageOptions, maritalStatusOptions] = await Promise.all([
+      const [professionOptions, qualificationOptions, heightOptions, genderOptions, ageOptions, maritalStatusOptions, religionOptions] = await Promise.all([
         getCombinedOptions('profession'),
         getCombinedOptions('qualification'),
         getCombinedOptions('height'),
         getCombinedOptions('gender'),
         getCombinedOptions('age'),
         getCombinedOptions('maritalStatus'),
+        getCombinedOptions('religion'),
       ]);
 
       setDynamicOptions({
@@ -75,6 +78,7 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
         gender: Array.isArray(genderOptions) ? genderOptions : [GENDERS.MALE, GENDERS.FEMALE],
         age: Array.isArray(ageOptions) ? ageOptions : AGE_OPTIONS,
         maritalStatus: Array.isArray(maritalStatusOptions) ? maritalStatusOptions : MARITAL_STATUS_OPTIONS,
+        religion: Array.isArray(religionOptions) ? religionOptions : RELIGION_OPTIONS,
       });
     } catch (error) {
       console.error('Error refreshing dynamic options:', error);
@@ -85,6 +89,8 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
         height: HEIGHT_OPTIONS,
         gender: [GENDERS.MALE, GENDERS.FEMALE],
         age: AGE_OPTIONS,
+        maritalStatus: MARITAL_STATUS_OPTIONS,
+        religion: RELIGION_OPTIONS,
       });
     }
   };
@@ -143,6 +149,8 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
       gender: formData.gender,
       profession: formData.profession || undefined,
       qualification: formData.qualification || undefined,
+      maritalStatus: formData.maritalStatus || undefined,
+      religion: formData.religion || undefined,
       height: formData.height,
     };
 
@@ -158,6 +166,8 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
       gender: type === "bride" ? GENDERS.FEMALE : GENDERS.MALE,
       profession: "",
       qualification: "",
+      maritalStatus: "",
+      religion: "",
       height: "",
     });
     setMatchResult(null);
@@ -283,6 +293,25 @@ export function MatchingModal({ isOpen, onClose, type }: MatchingModalProps) {
                       {(dynamicOptions.maritalStatus || []).filter(Boolean).map((maritalStatus, index) => (
                         <SelectItem key={`maritalStatus-${index}-${maritalStatus}`} value={maritalStatus}>
                           {maritalStatus}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="religion">Religion</Label>
+                  <Select
+                    value={formData.religion}
+                    onValueChange={(value) => setFormData({ ...formData, religion: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select religion (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(dynamicOptions.religion || []).filter(Boolean).map((religion, index) => (
+                        <SelectItem key={`religion-${index}-${religion}`} value={religion}>
+                          {religion}
                         </SelectItem>
                       ))}
                     </SelectContent>

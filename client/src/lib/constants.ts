@@ -92,6 +92,14 @@ export const MARITAL_STATUS_OPTIONS = [
   "Other"
 ];
 
+export const RELIGION_OPTIONS = [
+  "Islam",
+  "Hindu",
+  "Christian",
+  "Buddhist",
+  "Other"
+];
+
 // Dynamic options fetching function
 export const fetchCustomOptions = async (fieldType: string) => {
   try {
@@ -126,6 +134,8 @@ export const getCombinedOptions = async (fieldType: string) => {
       return [...BIRTH_YEAR_OPTIONS, ...customOptions];
     case 'maritalStatus':
       return [...MARITAL_STATUS_OPTIONS, ...customOptions];
+    case 'religion':
+      return [...RELIGION_OPTIONS, ...customOptions];
     default:
       return customOptions;
   }

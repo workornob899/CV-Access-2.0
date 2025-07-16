@@ -23,7 +23,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { LOGO_URL, PROFESSION_OPTIONS, QUALIFICATION_OPTIONS, HEIGHT_OPTIONS, GENDERS, AGE_OPTIONS, BIRTH_YEAR_OPTIONS, MARITAL_STATUS_OPTIONS, getCombinedOptions } from "@/lib/constants";
+import { LOGO_URL, PROFESSION_OPTIONS, QUALIFICATION_OPTIONS, HEIGHT_OPTIONS, GENDERS, AGE_OPTIONS, BIRTH_YEAR_OPTIONS, MARITAL_STATUS_OPTIONS, RELIGION_OPTIONS, getCombinedOptions } from "@/lib/constants";
 import { Profile } from "@shared/schema";
 
 export default function Dashboard() {
@@ -40,6 +40,7 @@ export default function Dashboard() {
     birthYear: "all",
     age: "all",
     maritalStatus: "all",
+    religion: "all",
     date: "",
   });
   const [profileIdSearch, setProfileIdSearch] = useState("");
@@ -53,6 +54,7 @@ export default function Dashboard() {
     profession: "",
     qualification: "",
     maritalStatus: "",
+    religion: "",
     height: "",
     birthYear: "",
   });
@@ -86,12 +88,13 @@ export default function Dashboard() {
     age: AGE_OPTIONS,
     birthYear: BIRTH_YEAR_OPTIONS,
     maritalStatus: MARITAL_STATUS_OPTIONS,
+    religion: RELIGION_OPTIONS,
   });
 
   // Function to refresh dynamic options
   const refreshDynamicOptions = async () => {
     try {
-      const [professionOptions, qualificationOptions, heightOptions, genderOptions, ageOptions, birthYearOptions, maritalStatusOptions] = await Promise.all([
+      const [professionOptions, qualificationOptions, heightOptions, genderOptions, ageOptions, birthYearOptions, maritalStatusOptions, religionOptions] = await Promise.all([
         getCombinedOptions('profession'),
         getCombinedOptions('qualification'),
         getCombinedOptions('height'),
@@ -99,6 +102,7 @@ export default function Dashboard() {
         getCombinedOptions('age'),
         getCombinedOptions('birthYear'),
         getCombinedOptions('maritalStatus'),
+        getCombinedOptions('religion'),
       ]);
 
       // Ensure all options are arrays and have valid values
@@ -110,6 +114,7 @@ export default function Dashboard() {
         age: Array.isArray(ageOptions) ? ageOptions : AGE_OPTIONS,
         birthYear: Array.isArray(birthYearOptions) ? birthYearOptions : BIRTH_YEAR_OPTIONS,
         maritalStatus: Array.isArray(maritalStatusOptions) ? maritalStatusOptions : MARITAL_STATUS_OPTIONS,
+        religion: Array.isArray(religionOptions) ? religionOptions : RELIGION_OPTIONS,
       });
     } catch (error) {
       console.error('Error refreshing dynamic options:', error);
@@ -122,6 +127,7 @@ export default function Dashboard() {
         age: AGE_OPTIONS,
         birthYear: BIRTH_YEAR_OPTIONS,
         maritalStatus: MARITAL_STATUS_OPTIONS,
+        religion: RELIGION_OPTIONS,
       });
     }
   };
@@ -191,6 +197,8 @@ export default function Dashboard() {
         gender: "",
         profession: "",
         qualification: "",
+        maritalStatus: "",
+        religion: "",
         height: "",
         birthYear: "",
       });
@@ -781,41 +789,6 @@ export default function Dashboard() {
                   </Card>
                 )}
 
-                {/* Profile ID Search */}
-                <Card className="card-shadow">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-gray-800 flex items-center">
-                      <Search className="w-5 h-5 mr-2" />
-                      Search by Profile ID
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-4">
-                      <Input
-                        placeholder="Enter Profile ID (e.g., GB-47805)"
-                        value={profileIdSearch}
-                        onChange={(e) => setProfileIdSearch(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        onClick={() => setProfileIdSearch("")}
-                        variant="outline"
-                        className="px-4"
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                    {profileIdSearch.trim() && (
-                      <div className="mt-4 text-sm text-gray-600">
-                        {profileIdSearchResults.length > 0 
-                          ? `Found ${profileIdSearchResults.length} profile(s) matching "${profileIdSearch}"`
-                          : `No profiles found matching "${profileIdSearch}"`
-                        }
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
                 {/* Filter Panel */}
                 <Card className="card-shadow">
                   <CardHeader>
@@ -825,7 +798,16 @@ export default function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700">Profile ID</Label>
+                        <Input
+                          placeholder="Enter Profile ID (e.g., GB-47805)"
+                          value={profileIdSearch}
+                          onChange={(e) => setProfileIdSearch(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium text-gray-700">Date</Label>
                         <Input
@@ -905,6 +887,28 @@ export default function Dashboard() {
                       </div>
 
                       <div className="space-y-2">
+                        <Label className="text-sm font-medium text-gray-700">Religion</Label>
+                        <Select
+                          value={searchFilters.religion}
+                          onValueChange={(value) =>
+                            setSearchFilters({ ...searchFilters, religion: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Religion" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Religions</SelectItem>
+                            {(dynamicOptions.religion || []).filter(Boolean).map((religion, index) => (
+                              <SelectItem key={`religion-${index}-${religion}`} value={religion}>
+                                {religion}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
                         <Label className="text-sm font-medium text-gray-700">Birth Year</Label>
                         <Select
                           value={searchFilters.birthYear}
@@ -968,6 +972,7 @@ export default function Dashboard() {
                             birthYear: "all",
                             age: "all",
                             maritalStatus: "all",
+                            religion: "all",
                             date: "",
                           });
                           queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
@@ -1316,6 +1321,7 @@ export default function Dashboard() {
                                 <SelectItem value="age">Age</SelectItem>
                                 <SelectItem value="birthYear">Birth Year</SelectItem>
                                 <SelectItem value="maritalStatus">Marital Status</SelectItem>
+                                <SelectItem value="religion">Religion</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1473,6 +1479,27 @@ export default function Dashboard() {
                     {(dynamicOptions.maritalStatus || []).map((maritalStatus) => (
                       <SelectItem key={maritalStatus} value={maritalStatus}>
                         {maritalStatus}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Religion</Label>
+                <Select
+                  value={newProfile.religion}
+                  onValueChange={(value) =>
+                    setNewProfile({ ...newProfile, religion: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Religion" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(dynamicOptions.religion || []).map((religion) => (
+                      <SelectItem key={religion} value={religion}>
+                        {religion}
                       </SelectItem>
                     ))}
                   </SelectContent>

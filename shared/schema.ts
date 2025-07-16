@@ -19,6 +19,7 @@ export const profiles = pgTable("profiles", {
   profession: text("profession"),
   qualification: text("qualification"), // New qualification field
   maritalStatus: text("marital_status"), // New marital status field
+  religion: text("religion"), // New religion field
   height: text("height").notNull(),
   profilePicture: text("profile_picture"),
   profilePictureOriginal: text("profile_picture_original"),
