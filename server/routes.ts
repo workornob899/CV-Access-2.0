@@ -184,13 +184,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Document not available in development mode' });
       }
       
-      // Handle real Cloudinary URLs - redirect to the direct URL
+      // Handle real Cloudinary URLs - fetch and serve the file
       if (profile.document.includes('cloudinary.com')) {
-        const originalName = profile.documentOriginal || `document_${profile.id}`;
-        
-        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        res.redirect(profile.document);
-        console.log(`Document download redirected to Cloudinary: ${profile.document}`);
+        try {
+          const originalName = profile.documentOriginal || `document_${profile.id}.pdf`;
+          
+          // Fetch the file from Cloudinary
+          const response = await fetch(profile.document);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch file from Cloudinary: ${response.status}`);
+          }
+          
+          const buffer = await response.arrayBuffer();
+          const fileBuffer = Buffer.from(buffer);
+          
+          // Set appropriate headers
+          const ext = originalName.split('.').pop()?.toLowerCase();
+          let contentType = 'application/octet-stream';
+          if (ext === 'pdf') contentType = 'application/pdf';
+          else if (ext === 'doc') contentType = 'application/msword';
+          else if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+          res.setHeader('Content-Length', fileBuffer.length.toString());
+          res.setHeader('Cache-Control', 'no-cache');
+          
+          res.send(fileBuffer);
+          console.log(`Document download served from Cloudinary: ${originalName}`);
+          
+        } catch (error) {
+          console.error(`Failed to fetch document from Cloudinary: ${error.message}`);
+          return res.status(500).json({ message: 'Failed to download document from Cloudinary' });
+        }
       } else {
         // Handle object storage files
         try {
