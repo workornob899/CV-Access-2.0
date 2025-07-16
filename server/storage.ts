@@ -252,7 +252,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(matches.createdAt))
       .limit(10);
 
-    return result.map(r => ({
+    return result.map((r: any) => ({
       ...r.match,
       profile: r.profile,
       matchedProfile: r.matchedProfile as Profile,
@@ -324,8 +324,7 @@ export class MemoryStorage implements IStorage {
         username: 'admin12345',
         email: 'admin@ghotokbari.com',
         password: hashedPassword,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date()
       });
       this.initialized = true;
     }
@@ -346,8 +345,7 @@ export class MemoryStorage implements IStorage {
     const newUser: User = {
       id: this.nextUserId++,
       ...user,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date()
     };
     this.users.push(newUser);
     return newUser;
@@ -357,7 +355,6 @@ export class MemoryStorage implements IStorage {
     const user = this.users.find(u => u.id === id);
     if (user) {
       user.email = email;
-      user.updatedAt = new Date();
       return user;
     }
     return undefined;
@@ -367,7 +364,6 @@ export class MemoryStorage implements IStorage {
     const user = this.users.find(u => u.id === id);
     if (user) {
       user.password = password;
-      user.updatedAt = new Date();
       return user;
     }
     return undefined;
@@ -386,6 +382,14 @@ export class MemoryStorage implements IStorage {
     const newProfile: Profile = {
       id: this.nextProfileId++,
       ...profile,
+      profession: profile.profession || null,
+      qualification: profile.qualification || null,
+      maritalStatus: profile.maritalStatus || null,
+      religion: profile.religion || null,
+      profilePicture: profile.profilePicture || null,
+      profilePictureOriginal: profile.profilePictureOriginal || null,
+      document: profile.document || null,
+      documentOriginal: profile.documentOriginal || null,
       profileId,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -417,7 +421,13 @@ export class MemoryStorage implements IStorage {
   async updateProfile(id: number, profile: Partial<InsertProfile>): Promise<Profile | undefined> {
     const existingProfile = this.profiles.find(p => p.id === id);
     if (existingProfile) {
-      Object.assign(existingProfile, profile, { updatedAt: new Date() });
+      Object.assign(existingProfile, profile, { 
+        profession: profile.profession || null,
+        qualification: profile.qualification || null,
+        maritalStatus: profile.maritalStatus || null,
+        religion: profile.religion || null,
+        updatedAt: new Date() 
+      });
       return existingProfile;
     }
     return undefined;
@@ -485,8 +495,7 @@ export class MemoryStorage implements IStorage {
     const newMatch: Match = {
       id: this.nextMatchId++,
       ...match,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date()
     };
     this.matches.push(newMatch);
     return newMatch;
@@ -538,8 +547,7 @@ export class MemoryStorage implements IStorage {
     const newOption: CustomOption = {
       id: this.nextCustomOptionId++,
       ...option,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date()
     };
     this.customOptions.push(newOption);
     return newOption;
@@ -580,7 +588,7 @@ async function createStorage(): Promise<IStorage> {
         await db.select().from(users).limit(1);
         console.log("Database connection successful, using DatabaseStorage");
         return new DatabaseStorage(db);
-      } catch (retryError) {
+      } catch (retryError: any) {
         connectionAttempts++;
         console.log(`Database connection attempt ${connectionAttempts} failed:`, retryError.message);
         
@@ -593,7 +601,7 @@ async function createStorage(): Promise<IStorage> {
     
     throw new Error(`Failed to connect to database after ${maxRetries} attempts`);
     
-  } catch (error) {
+  } catch (error: any) {
     if (isProduction) {
       // In production, never fall back to memory storage
       console.error("CRITICAL ERROR: Database connection failed in production");
@@ -614,4 +622,4 @@ async function createStorage(): Promise<IStorage> {
   }
 }
 
-export const storage = await createStorage();
+export const storage = createStorage();

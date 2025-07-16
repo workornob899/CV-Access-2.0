@@ -4,22 +4,15 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertProfileSchema, insertMatchSchema, insertCustomOptionSchema } from "@shared/schema";
 import { testConnection } from "./db";
-import { fileStorage } from "./object-storage";
+import { cloudinaryService } from "./cloudinary";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 
-// Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+// Configure multer for file uploads (using memory storage for Cloudinary)
 const upload = multer({
-  dest: uploadDir,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -70,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }));
 
   // Serve uploaded files
-  app.use('/uploads', express.static(uploadDir));
+  // Static file serving removed - using Cloudinary for file storage
 
   // Serve files from Object Storage
   app.get('/api/files/:storageKey(*)', async (req, res) => {
@@ -117,43 +110,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'No document found for this profile' });
       }
       
-      try {
-        // Extract storage key from URL (remove /api/files/ prefix)
-        const storageKey = profile.document.replace('/api/files/', '');
-        console.log(`Downloading from Object Storage: ${storageKey}`);
-        
-        const fileData = await fileStorage.downloadFile(storageKey);
-        
-        // Set the proper filename for download
+      // Handle Cloudinary URLs - redirect to the direct URL
+      if (profile.document.includes('cloudinary.com')) {
         const originalName = profile.documentOriginal || `document_${profile.id}`;
-        console.log(`Setting download filename to: ${originalName}`);
         
         res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-        res.setHeader('Content-Type', 'application/octet-stream');
-        
-        res.send(fileData);
-        console.log(`File download completed for: ${originalName}`);
-        
-      } catch (storageError) {
-        console.error('Object Storage download error:', storageError);
-        
-        // Fallback: try local storage for backward compatibility
-        const fileName = profile.document.replace('/uploads/', '');
-        const filePath = path.join(uploadDir, fileName);
-        
-        if (fs.existsSync(filePath)) {
-          console.log(`Fallback to local file: ${filePath}`);
-          const originalName = profile.documentOriginal || `document_${profile.id}`;
-          
-          res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-          res.setHeader('Content-Type', 'application/octet-stream');
-          
-          const fileStream = fs.createReadStream(filePath);
-          fileStream.pipe(res);
-        } else {
-          console.log(`File not found in Object Storage or local storage`);
-          return res.status(404).json({ message: 'Document file not found' });
-        }
+        res.redirect(profile.document);
+        console.log(`Document download redirected to Cloudinary: ${profile.document}`);
+      } else {
+        // Legacy support - shouldn't be reached in production
+        console.log(`Legacy document URL not supported: ${profile.document}`);
+        return res.status(404).json({ message: 'Document file not found' });
       }
       
     } catch (error) {
@@ -268,6 +235,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gender: req.body.gender,
         profession: req.body.profession || null,
         qualification: req.body.qualification || null,
+        maritalStatus: req.body.maritalStatus || null,
+        religion: req.body.religion || null,
         height: req.body.height,
         birthYear: parseInt(req.body.birthYear),
         profilePicture: null as string | null,
@@ -276,36 +245,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         documentOriginal: null as string | null,
       };
 
-      // Handle file uploads
+      // Handle file uploads to Cloudinary
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
-          const objectStorageUrl = await fileStorage.uploadFile(files.profilePicture[0].path, storageKey);
-          profileData.profilePicture = objectStorageUrl;
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
+            files.profilePicture[0].buffer,
+            'profile-pictures',
+            files.profilePicture[0].originalname
+          );
+          profileData.profilePicture = cloudinaryUrl;
           profileData.profilePictureOriginal = files.profilePicture[0].originalname;
-          console.log(`Profile picture uploaded to Object Storage: ${objectStorageUrl}`);
+          console.log(`Profile picture uploaded to Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Profile picture upload error:', uploadError);
-          // Fallback to local storage
-          profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
-          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+          throw new Error('Failed to upload profile picture');
         }
       }
       
       if (files.document && files.document[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
-          const objectStorageUrl = await fileStorage.uploadFile(files.document[0].path, storageKey);
-          profileData.document = objectStorageUrl;
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
+            files.document[0].buffer,
+            'documents',
+            files.document[0].originalname
+          );
+          profileData.document = cloudinaryUrl;
           profileData.documentOriginal = files.document[0].originalname;
-          console.log(`Document uploaded to Object Storage: ${objectStorageUrl}`);
+          console.log(`Document uploaded to Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Document upload error:', uploadError);
-          // Fallback to local storage
-          profileData.document = `/uploads/${files.document[0].filename}`;
-          profileData.documentOriginal = files.document[0].originalname;
+          throw new Error('Failed to upload document');
         }
       }
 
@@ -370,6 +341,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gender: req.body.gender,
         profession: req.body.profession || null,
         qualification: req.body.qualification || null,
+        maritalStatus: req.body.maritalStatus || null,
+        religion: req.body.religion || null,
         height: req.body.height,
         birthYear: parseInt(req.body.birthYear),
         profilePicture: null as string | null,
@@ -378,50 +351,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         documentOriginal: null as string | null,
       };
 
-      // Handle file uploads
+      // Handle file uploads to Cloudinary
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
-          const objectStorageUrl = await fileStorage.uploadFile(files.profilePicture[0].path, storageKey);
-          profileData.profilePicture = objectStorageUrl;
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
+            files.profilePicture[0].buffer,
+            'profile-pictures',
+            files.profilePicture[0].originalname
+          );
+          profileData.profilePicture = cloudinaryUrl;
           profileData.profilePictureOriginal = files.profilePicture[0].originalname;
           
-          // Clean up old profile picture from Object Storage if it exists
-          if (existingProfile.profilePicture && existingProfile.profilePicture.startsWith('/api/files/')) {
-            const oldStorageKey = existingProfile.profilePicture.replace('/api/files/', '');
-            await fileStorage.deleteFile(oldStorageKey);
+          // Clean up old profile picture from Cloudinary if it exists
+          if (existingProfile.profilePicture && existingProfile.profilePicture.includes('cloudinary.com')) {
+            const publicId = cloudinaryService.extractPublicId(existingProfile.profilePicture);
+            await cloudinaryService.deleteFile(publicId);
           }
           
-          console.log(`Profile picture updated in Object Storage: ${objectStorageUrl}`);
+          console.log(`Profile picture updated in Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Profile picture upload error:', uploadError);
-          // Fallback to local storage
-          profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
-          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+          throw new Error('Failed to upload profile picture');
         }
       }
       
       if (files.document && files.document[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
-          const objectStorageUrl = await fileStorage.uploadFile(files.document[0].path, storageKey);
-          profileData.document = objectStorageUrl;
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
+            files.document[0].buffer,
+            'documents',
+            files.document[0].originalname
+          );
+          profileData.document = cloudinaryUrl;
           profileData.documentOriginal = files.document[0].originalname;
           
-          // Clean up old document from Object Storage if it exists
-          if (existingProfile.document && existingProfile.document.startsWith('/api/files/')) {
-            const oldStorageKey = existingProfile.document.replace('/api/files/', '');
-            await fileStorage.deleteFile(oldStorageKey);
+          // Clean up old document from Cloudinary if it exists
+          if (existingProfile.document && existingProfile.document.includes('cloudinary.com')) {
+            const publicId = cloudinaryService.extractPublicId(existingProfile.document);
+            await cloudinaryService.deleteFile(publicId);
           }
           
-          console.log(`Document updated in Object Storage: ${objectStorageUrl}`);
+          console.log(`Document updated in Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Document upload error:', uploadError);
-          // Fallback to local storage
-          profileData.document = `/uploads/${files.document[0].filename}`;
-          profileData.documentOriginal = files.document[0].originalname;
+          throw new Error('Failed to upload document');
         }
       }
 
@@ -449,17 +424,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Profile not found' });
       }
       
-      // Clean up files from Object Storage
-      if (profile.profilePicture && profile.profilePicture.startsWith('/api/files/')) {
-        const storageKey = profile.profilePicture.replace('/api/files/', '');
-        await fileStorage.deleteFile(storageKey);
-        console.log(`Cleaned up profile picture from Object Storage: ${storageKey}`);
+      // Clean up files from Cloudinary
+      if (profile.profilePicture && profile.profilePicture.includes('cloudinary.com')) {
+        const publicId = cloudinaryService.extractPublicId(profile.profilePicture);
+        await cloudinaryService.deleteFile(publicId);
+        console.log(`Cleaned up profile picture from Cloudinary: ${publicId}`);
       }
       
-      if (profile.document && profile.document.startsWith('/api/files/')) {
-        const storageKey = profile.document.replace('/api/files/', '');
-        await fileStorage.deleteFile(storageKey);
-        console.log(`Cleaned up document from Object Storage: ${storageKey}`);
+      if (profile.document && profile.document.includes('cloudinary.com')) {
+        const publicId = cloudinaryService.extractPublicId(profile.document);
+        await cloudinaryService.deleteFile(publicId);
+        console.log(`Cleaned up document from Cloudinary: ${publicId}`);
       }
       
       const success = await storage.deleteProfile(profileId);
