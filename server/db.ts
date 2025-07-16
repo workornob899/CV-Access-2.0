@@ -6,23 +6,27 @@ import * as schema from "@shared/schema";
 // Configure Neon for serverless WebSocket support
 neonConfig.webSocketConstructor = ws;
 
+// Use the new Neon database URL directly
+const newNeonUrl = 'postgresql://neondb_owner:npg_4yUoSEVAfsB5@ep-shiny-star-adbs72zc-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+
+// Override environment variable with new URL
+process.env.DATABASE_URL = newNeonUrl;
+
 // Production-grade database URL validation
-if (!process.env.DATABASE_URL) {
+if (!newNeonUrl) {
   throw new Error(
     "DATABASE_URL must be set. Did you forget to provision a database?",
   );
 }
 
 // Validate DATABASE_URL format for Neon
-const databaseUrl = process.env.DATABASE_URL.trim();
-if (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
+if (!newNeonUrl.startsWith('postgresql://') && !newNeonUrl.startsWith('postgres://')) {
   throw new Error(
     "Invalid DATABASE_URL format. Expected PostgreSQL connection string starting with 'postgresql://' or 'postgres://'"
   );
 }
 
-// Clean the DATABASE_URL by removing any surrounding quotes
-const cleanDatabaseUrl = databaseUrl.replace(/^'|'$/g, '');
+const cleanDatabaseUrl = newNeonUrl;
 
 // Enhanced connection pool configuration for Neon
 export const pool = new Pool({ 
