@@ -45,6 +45,9 @@ declare module 'express-session' {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Wait for storage initialization
+  const storageInstance = await storage;
+  
   // Create memory store for sessions
   const MemStore = MemoryStore(session);
 
@@ -98,7 +101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profileId = parseInt(req.params.id);
       console.log(`Download request for profile ID: ${profileId}`);
       
-      const profile = await storage.getProfile(profileId);
+      const profile = await storageInstance.getProfile(profileId);
       
       if (!profile) {
         console.log(`Profile not found: ${profileId}`);
@@ -139,12 +142,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (username === 'admin12345' && password === 'admin12345') {
         console.log('Admin credentials valid, looking for user...');
         // Create or get admin user
-        let user = await storage.getUserByUsername(username);
+        let user = await storageInstance.getUserByUsername(username);
         console.log('Found user:', user ? 'Yes' : 'No');
         if (!user) {
           console.log('Creating new admin user...');
           const hashedPassword = await bcrypt.hash(password, 10);
-          user = await storage.createUser({
+          user = await storageInstance.createUser({
             username,
             password: hashedPassword,
             email: 'admin12345',
@@ -180,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const user = await storage.getUser(req.session.userId);
+      const user = await storageInstance.getUser(req.session.userId);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -194,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Profile routes
   app.get('/api/profiles', requireAuth, async (req, res) => {
     try {
-      const profiles = await storage.getAllProfiles();
+      const profiles = await storageInstance.getAllProfiles();
       res.json(profiles);
     } catch (error) {
       res.status(500).json({ message: 'Failed to fetch profiles' });
@@ -217,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         filters[key as keyof typeof filters] === undefined && delete filters[key as keyof typeof filters]
       );
 
-      const profiles = await storage.searchProfiles(filters);
+      const profiles = await storageInstance.searchProfiles(filters);
       res.json(profiles);
     } catch (error) {
       res.status(500).json({ message: 'Failed to search profiles' });
@@ -281,7 +284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const validatedData = insertProfileSchema.parse(profileData);
-      const profile = await storage.createProfile(validatedData);
+      const profile = await storageInstance.createProfile(validatedData);
       
       res.status(201).json(profile);
     } catch (error) {
@@ -292,7 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/profiles/stats', requireAuth, async (req, res) => {
     try {
-      const stats = await storage.getProfileStats();
+      const stats = await storageInstance.getProfileStats();
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: 'Failed to fetch profile statistics' });
@@ -330,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profileId = parseInt(req.params.id);
       
       // Get existing profile to manage old files
-      const existingProfile = await storage.getProfile(profileId);
+      const existingProfile = await storageInstance.getProfile(profileId);
       if (!existingProfile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
@@ -419,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const profileId = parseInt(req.params.id);
       
       // Get profile to clean up associated files
-      const profile = await storage.getProfile(profileId);
+      const profile = await storageInstance.getProfile(profileId);
       if (!profile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
