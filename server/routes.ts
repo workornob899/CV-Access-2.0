@@ -403,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const updatedProfile = await storage.updateProfile(profileId, profileData);
+      const updatedProfile = await storageInstance.updateProfile(profileId, profileData);
       
       if (!updatedProfile) {
         return res.status(404).json({ message: 'Profile not found' });
@@ -440,7 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Cleaned up document from Cloudinary: ${publicId}`);
       }
       
-      const success = await storage.deleteProfile(profileId);
+      const success = await storageInstance.deleteProfile(profileId);
       
       if (!success) {
         return res.status(500).json({ message: 'Failed to delete profile from database' });
@@ -480,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Find opposite gender profiles
       const oppositeGender = gender === 'Male' ? 'Female' : 'Male';
-      const candidateProfiles = await storage.getProfilesByGender(oppositeGender);
+      const candidateProfiles = await storageInstance.getProfilesByGender(oppositeGender);
       
       // Apply exact matching logic
       const compatibleProfiles = candidateProfiles.filter(profile => {
@@ -556,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/user/email', requireAuth, async (req, res) => {
     try {
       const { email } = req.body;
-      const user = await storage.updateUserEmail(req.session.userId!, email);
+      const user = await storageInstance.updateUserEmail(req.session.userId!, email);
       
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -572,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { currentPassword, newPassword } = req.body;
       
-      const user = await storage.getUser(req.session.userId!);
+      const user = await storageInstance.getUser(req.session.userId!);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -580,7 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For admin user, allow password change without verification
       if (user.username === 'admin12345') {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
+        const updatedUser = await storageInstance.updateUserPassword(user.id, hashedPassword);
         
         if (!updatedUser) {
           return res.status(500).json({ message: 'Failed to update password' });
@@ -599,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/custom-options/:fieldType', requireAuth, async (req, res) => {
     try {
       const { fieldType } = req.params;
-      const options = await storage.getCustomOptions(fieldType);
+      const options = await storageInstance.getCustomOptions(fieldType);
       res.json(options);
     } catch (error) {
       res.status(500).json({ message: 'Failed to fetch custom options' });
@@ -609,7 +609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/custom-options', requireAuth, async (req, res) => {
     try {
       const validatedData = insertCustomOptionSchema.parse(req.body);
-      const option = await storage.createCustomOption(validatedData);
+      const option = await storageInstance.createCustomOption(validatedData);
       res.status(201).json(option);
     } catch (error) {
       console.error('Custom option creation error:', error);
@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/custom-options/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteCustomOption(parseInt(id));
+      const deleted = await storageInstance.deleteCustomOption(parseInt(id));
       if (deleted) {
         res.json({ message: 'Custom option deleted successfully' });
       } else {
