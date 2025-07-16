@@ -48,8 +48,8 @@ declare module 'express-session' {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Wait for storage initialization
   const storageInstance = await storage;
-
-  // Create memory store for sessions (with production-safe fallback)
+  
+  // Create memory store for sessions
   const MemStore = MemoryStore(session);
 
   // Session configuration
@@ -61,8 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
-      httpOnly: true, // Prevent XSS attacks
+      secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   }));
@@ -75,13 +74,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const storageKey = req.params.storageKey;
       console.log(`File request for: ${storageKey}`);
-
+      
       const fileData = await fileStorage.downloadFile(storageKey);
-
+      
       // Set appropriate headers
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
+      
       res.send(fileData);
     } catch (error) {
       console.error(`Failed to serve file ${req.params.storageKey}:`, error);
@@ -94,15 +93,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { type, id } = req.params;
       const profileId = parseInt(id);
-
+      
       const profile = await storageInstance.getProfile(profileId);
       if (!profile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
-
+      
       let fileUrl = '';
       let fileName = '';
-
+      
       if (type === 'profile-picture' && profile.profilePicture) {
         fileUrl = profile.profilePicture;
         fileName = profile.profilePictureOriginal || `profile_${profileId}.jpg`;
@@ -112,24 +111,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         return res.status(404).json({ message: 'File not found' });
       }
-
+      
       // Check if it's a mock URL or actual file
       if (fileUrl.includes('cloudinary.com/demo') || fileUrl.includes('res.cloudinary.com/demo')) {
         // Return a placeholder response for mock URLs
         return res.status(404).json({ message: 'File not available in development mode' });
       }
-
+      
       // If it's a real Cloudinary URL, redirect to it
       if (fileUrl.includes('cloudinary.com')) {
         return res.redirect(fileUrl);
       }
-
+      
       // Otherwise, serve from object storage
       // Extract storage key from URL
       const storageKey = fileUrl.replace('/api/files/', '');
       const fileData = await fileStorage.downloadFile(storageKey);
       const ext = fileName.split('.').pop()?.toLowerCase();
-
+      
       // Set content type based on extension
       let contentType = 'application/octet-stream';
       if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
@@ -138,16 +137,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       else if (ext === 'pdf') contentType = 'application/pdf';
       else if (ext === 'doc') contentType = 'application/msword';
       else if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
+      
       res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', 'public, max-age=31536000');
-
+      
       if (type === 'document') {
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       }
-
+      
       res.send(fileData);
-
+      
     } catch (error) {
       console.error('File serving error:', error);
       res.status(500).json({ message: 'Failed to serve file' });
@@ -167,28 +166,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const profileId = parseInt(req.params.id);
       console.log(`Download request for profile ID: ${profileId}`);
-
+      
       const profile = await storageInstance.getProfile(profileId);
-
+      
       if (!profile) {
         console.log(`Profile not found: ${profileId}`);
         return res.status(404).json({ message: 'Profile not found' });
       }
-
+      
       if (!profile.document) {
         console.log(`No document found for profile: ${profileId}`);
         return res.status(404).json({ message: 'No document found for this profile' });
       }
-
+      
       // Check if it's a mock URL
       if (profile.document.includes('cloudinary.com/demo') || profile.document.includes('res.cloudinary.com/demo')) {
         return res.status(404).json({ message: 'Document not available in development mode' });
       }
-
+      
       // Handle real Cloudinary URLs - redirect to the direct URL
       if (profile.document.includes('cloudinary.com')) {
         const originalName = profile.documentOriginal || `document_${profile.id}`;
-
+        
         res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
         res.redirect(profile.document);
         console.log(`Document download redirected to Cloudinary: ${profile.document}`);
@@ -199,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const storageKey = profile.document.replace('/api/files/', '');
           const fileData = await fileStorage.downloadFile(storageKey);
           const fileName = profile.documentOriginal || `document_${profile.id}.pdf`;
-
+          
           res.setHeader('Content-Type', 'application/pdf');
           res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
           res.send(fileData);
@@ -208,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ message: 'Document file not found' });
         }
       }
-
+      
     } catch (error) {
       console.error('Document download error:', error);
       res.status(500).json({ message: 'Failed to download document' });
@@ -333,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle file uploads to Cloudinary
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-
+      
       if (files.profilePicture && files.profilePicture[0]) {
         try {
           const cloudinaryUrl = await cloudinaryService.uploadFile(
@@ -349,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           throw new Error('Failed to upload profile picture');
         }
       }
-
+      
       if (files.document && files.document[0]) {
         try {
           const cloudinaryUrl = await cloudinaryService.uploadFile(
@@ -368,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertProfileSchema.parse(profileData);
       const profile = await storageInstance.createProfile(validatedData);
-
+      
       res.status(201).json(profile);
     } catch (error) {
       console.error('Profile creation error:', error);
@@ -390,7 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const isHealthy = await testConnection();
       const storageType = process.env.DATABASE_URL ? 'PostgreSQL' : 'Memory';
-
+      
       res.json({
         status: isHealthy ? 'healthy' : 'unhealthy',
         storageType,
@@ -414,13 +413,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ]), async (req, res) => {
     try {
       const profileId = parseInt(req.params.id);
-
+      
       // Get existing profile to manage old files
       const existingProfile = await storageInstance.getProfile(profileId);
       if (!existingProfile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
-
+      
       const profileData = {
         name: req.body.name,
         age: parseInt(req.body.age),
@@ -439,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Handle file uploads to Cloudinary
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-
+      
       if (files.profilePicture && files.profilePicture[0]) {
         try {
           const cloudinaryUrl = await cloudinaryService.uploadFile(
@@ -449,20 +448,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           profileData.profilePicture = cloudinaryUrl;
           profileData.profilePictureOriginal = files.profilePicture[0].originalname;
-
+          
           // Clean up old profile picture from Cloudinary if it exists
           if (existingProfile.profilePicture && existingProfile.profilePicture.includes('cloudinary.com')) {
             const publicId = cloudinaryService.extractPublicId(existingProfile.profilePicture);
             await cloudinaryService.deleteFile(publicId);
           }
-
+          
           console.log(`Profile picture updated in Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Profile picture upload error:', uploadError);
           throw new Error('Failed to upload profile picture');
         }
       }
-
+      
       if (files.document && files.document[0]) {
         try {
           const cloudinaryUrl = await cloudinaryService.uploadFile(
@@ -472,13 +471,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           profileData.document = cloudinaryUrl;
           profileData.documentOriginal = files.document[0].originalname;
-
+          
           // Clean up old document from Cloudinary if it exists
           if (existingProfile.document && existingProfile.document.includes('cloudinary.com')) {
             const publicId = cloudinaryService.extractPublicId(existingProfile.document);
             await cloudinaryService.deleteFile(publicId);
           }
-
+          
           console.log(`Document updated in Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Document upload error:', uploadError);
@@ -487,11 +486,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedProfile = await storageInstance.updateProfile(profileId, profileData);
-
+      
       if (!updatedProfile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
-
+      
       res.json(updatedProfile);
     } catch (error) {
       console.error('Profile update error:', error);
@@ -503,32 +502,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/profiles/:id', requireAuth, async (req, res) => {
     try {
       const profileId = parseInt(req.params.id);
-
+      
       // Get profile to clean up associated files
       const profile = await storageInstance.getProfile(profileId);
       if (!profile) {
         return res.status(404).json({ message: 'Profile not found' });
       }
-
+      
       // Clean up files from Cloudinary
       if (profile.profilePicture && profile.profilePicture.includes('cloudinary.com')) {
         const publicId = cloudinaryService.extractPublicId(profile.profilePicture);
         await cloudinaryService.deleteFile(publicId);
         console.log(`Cleaned up profile picture from Cloudinary: ${publicId}`);
       }
-
+      
       if (profile.document && profile.document.includes('cloudinary.com')) {
         const publicId = cloudinaryService.extractPublicId(profile.document);
         await cloudinaryService.deleteFile(publicId);
         console.log(`Cleaned up document from Cloudinary: ${publicId}`);
       }
-
+      
       const success = await storageInstance.deleteProfile(profileId);
-
+      
       if (!success) {
         return res.status(500).json({ message: 'Failed to delete profile from database' });
       }
-
+      
       res.json({ message: 'Profile deleted successfully' });
     } catch (error) {
       console.error('Profile deletion error:', error);
@@ -555,16 +554,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/match', requireAuth, async (req, res) => {
     try {
       const { name, age, gender, profession, height } = req.body;
-
+      
       // Validate groom profession requirement
       if (gender === 'Male' && !profession) {
         return res.status(400).json({ message: 'Groom profession is mandatory' });
       }
-
+      
       // Find opposite gender profiles
       const oppositeGender = gender === 'Male' ? 'Female' : 'Male';
       const candidateProfiles = await storageInstance.getProfilesByGender(oppositeGender);
-
+      
       // Apply exact matching logic
       const compatibleProfiles = candidateProfiles.filter(profile => {
         const inputHeightInches = parseHeight(height);
@@ -575,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Bride should be 3-6 years younger and 6-8 inches shorter
           const ageDiff = age - profile.age;
           const heightDiff = inputHeightInches - candidateHeightInches;
-
+          
           return ageDiff >= 3 && ageDiff <= 6 && heightDiff >= 6 && heightDiff <= 8;
         } else {
           // Female (Bride) looking for male (Groom)
@@ -587,7 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const ageDiff = profile.age - age;
           const heightDiff = candidateHeightInches - inputHeightInches;
-
+          
           return ageDiff >= 3 && ageDiff <= 6 && heightDiff >= 6 && heightDiff <= 8;
         }
       });
@@ -617,13 +616,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (recentMatches.length > MAX_RECENT_MATCHES) {
         recentMatches.shift(); // Remove oldest
       }
-
+      
       // Calculate compatibility score (based on age and height compatibility)
       const compatibilityScore = Math.floor(Math.random() * 15) + 85; // 85-100%
 
       // Store the match if profiles exist
       const inputProfile = { name, age, gender, profession, height, birthYear: new Date().getFullYear() - age };
-
+      
       res.json({
         inputProfile,
         matchedProfile: randomMatch,
@@ -640,11 +639,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email } = req.body;
       const user = await storageInstance.updateUserEmail(req.session.userId!, email);
-
+      
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
-
+      
       res.json({ user: { id: user.id, username: user.username, email: user.email } });
     } catch (error) {
       res.status(500).json({ message: 'Failed to update email' });
@@ -654,7 +653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/user/password', requireAuth, async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
-
+      
       const user = await storageInstance.getUser(req.session.userId!);
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -664,11 +663,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.username === 'admin12345') {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         const updatedUser = await storageInstance.updateUserPassword(user.id, hashedPassword);
-
+        
         if (!updatedUser) {
           return res.status(500).json({ message: 'Failed to update password' });
         }
-
+        
         res.json({ message: 'Password updated successfully' });
       } else {
         res.status(400).json({ message: 'Password change not allowed for this user' });
