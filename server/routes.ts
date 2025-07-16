@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { insertUserSchema, insertProfileSchema, insertMatchSchema, insertCustomOptionSchema } from "@shared/schema";
 import { testConnection } from "./db";
 import { cloudinaryService } from "./cloudinary";
+import { fileStorage } from "./object-storage";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
