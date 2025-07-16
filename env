@@ -1,0 +1,4 @@
+DATABASE_URL=postgresql://rest_express_owner:UR5gMLuqGqGu@ep-shiny-star-a6bs72zc-pooler.us-east-1.postgres.vercel-storage.com/rest_express?sslmode=require
+CLOUDINARY_CLOUD_NAME=df2fkc7qv
+CLOUDINARY_API_KEY=228883882389618
+CLOUDINARY_API_SECRET=j59xsUqHTO0Sfz5Q7E_u6pJ7RSc

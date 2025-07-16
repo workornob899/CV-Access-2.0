@@ -330,19 +330,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         documentOriginal: null as string | null,
       };
 
-      // Handle file uploads to Object Storage
+      // Handle file uploads to Cloudinary
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
-          const fileUrl = await fileStorage.uploadFromBuffer(
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
             files.profilePicture[0].buffer,
-            storageKey
+            'profile-pictures',
+            files.profilePicture[0].originalname
           );
-          profileData.profilePicture = fileUrl;
+          profileData.profilePicture = cloudinaryUrl;
           profileData.profilePictureOriginal = files.profilePicture[0].originalname;
-          console.log(`Profile picture uploaded to Object Storage: ${fileUrl}`);
+          console.log(`Profile picture uploaded to Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Profile picture upload error:', uploadError);
           throw new Error('Failed to upload profile picture');
@@ -351,14 +351,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (files.document && files.document[0]) {
         try {
-          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
-          const fileUrl = await fileStorage.uploadFromBuffer(
+          const cloudinaryUrl = await cloudinaryService.uploadFile(
             files.document[0].buffer,
-            storageKey
+            'documents',
+            files.document[0].originalname
           );
-          profileData.document = fileUrl;
+          profileData.document = cloudinaryUrl;
           profileData.documentOriginal = files.document[0].originalname;
-          console.log(`Document uploaded to Object Storage: ${fileUrl}`);
+          console.log(`Document uploaded to Cloudinary: ${cloudinaryUrl}`);
         } catch (uploadError) {
           console.error('Document upload error:', uploadError);
           throw new Error('Failed to upload document');

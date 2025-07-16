@@ -1,19 +1,11 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
-// Only require Cloudinary credentials in production
-if (process.env.NODE_ENV === 'production') {
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    throw new Error(
-      "Cloudinary environment variables are required in production: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET"
-    );
-  }
-}
-
+// Configure Cloudinary with provided credentials
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'development',
-  api_key: process.env.CLOUDINARY_API_KEY || 'development',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'development',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'df2fkc7qv',
+  api_key: process.env.CLOUDINARY_API_KEY || '228883882389618',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'j59xsUqHTO0Sfz5Q7E_u6pJ7RSc',
 });
 
 export class CloudinaryService {
@@ -25,13 +17,6 @@ export class CloudinaryService {
    * @returns Promise<string> - The Cloudinary URL
    */
   async uploadFile(buffer: Buffer, folder: string, filename: string): Promise<string> {
-    // In development without Cloudinary credentials, return a mock URL
-    if (process.env.NODE_ENV !== 'production' && !process.env.CLOUDINARY_CLOUD_NAME) {
-      const mockUrl = `https://res.cloudinary.com/demo/image/upload/v1/${Date.now()}_${filename}`;
-      console.log(`Development mode: Mock Cloudinary URL generated: ${mockUrl}`);
-      return mockUrl;
-    }
-
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
@@ -41,8 +26,10 @@ export class CloudinaryService {
         },
         (error, result) => {
           if (error) {
+            console.error('Cloudinary upload error:', error);
             reject(error);
           } else {
+            console.log(`File uploaded to Cloudinary: ${result!.secure_url}`);
             resolve(result!.secure_url);
           }
         }
