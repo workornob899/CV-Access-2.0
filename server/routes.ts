@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertProfileSchema, insertMatchSchema, insertCustomOptionSchema } from "@shared/schema";
 import { testConnection } from "./db";
+import { fileStorage } from "./object-storage";
 import bcrypt from "bcrypt";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -71,6 +72,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use('/uploads', express.static(uploadDir));
 
+  // Serve files from Object Storage
+  app.get('/api/files/:storageKey(*)', async (req, res) => {
+    try {
+      const storageKey = req.params.storageKey;
+      console.log(`File request for: ${storageKey}`);
+      
+      const fileData = await fileStorage.downloadFile(storageKey);
+      
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+      
+      res.send(fileData);
+    } catch (error) {
+      console.error(`Failed to serve file ${req.params.storageKey}:`, error);
+      res.status(404).json({ message: 'File not found' });
+    }
+  });
+
   // Authentication middleware
   const requireAuth = (req: any, res: any, next: any) => {
     if (!req.session.userId) {
@@ -97,31 +117,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'No document found for this profile' });
       }
       
-      // Get the file path (remove /uploads prefix)
-      const fileName = profile.document.replace('/uploads/', '');
-      const filePath = path.join(uploadDir, fileName);
-      
-      console.log(`Looking for file at: ${filePath}`);
-      console.log(`Original document name: ${profile.documentOriginal}`);
-      
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        console.log(`File does not exist: ${filePath}`);
-        return res.status(404).json({ message: 'Document file not found' });
+      try {
+        // Extract storage key from URL (remove /api/files/ prefix)
+        const storageKey = profile.document.replace('/api/files/', '');
+        console.log(`Downloading from Object Storage: ${storageKey}`);
+        
+        const fileData = await fileStorage.downloadFile(storageKey);
+        
+        // Set the proper filename for download
+        const originalName = profile.documentOriginal || `document_${profile.id}`;
+        console.log(`Setting download filename to: ${originalName}`);
+        
+        res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        
+        res.send(fileData);
+        console.log(`File download completed for: ${originalName}`);
+        
+      } catch (storageError) {
+        console.error('Object Storage download error:', storageError);
+        
+        // Fallback: try local storage for backward compatibility
+        const fileName = profile.document.replace('/uploads/', '');
+        const filePath = path.join(uploadDir, fileName);
+        
+        if (fs.existsSync(filePath)) {
+          console.log(`Fallback to local file: ${filePath}`);
+          const originalName = profile.documentOriginal || `document_${profile.id}`;
+          
+          res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
+          res.setHeader('Content-Type', 'application/octet-stream');
+          
+          const fileStream = fs.createReadStream(filePath);
+          fileStream.pipe(res);
+        } else {
+          console.log(`File not found in Object Storage or local storage`);
+          return res.status(404).json({ message: 'Document file not found' });
+        }
       }
-      
-      // Set the proper filename for download
-      const originalName = profile.documentOriginal || `document_${profile.id}`;
-      console.log(`Setting download filename to: ${originalName}`);
-      
-      res.setHeader('Content-Disposition', `attachment; filename="${originalName}"`);
-      res.setHeader('Content-Type', 'application/octet-stream');
-      
-      // Stream the file
-      const fileStream = fs.createReadStream(filePath);
-      fileStream.pipe(res);
-      
-      console.log(`File download started for: ${originalName}`);
       
     } catch (error) {
       console.error('Document download error:', error);
@@ -247,13 +280,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
-        profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
-        profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+        try {
+          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
+          const objectStorageUrl = await fileStorage.uploadFile(files.profilePicture[0].path, storageKey);
+          profileData.profilePicture = objectStorageUrl;
+          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+          console.log(`Profile picture uploaded to Object Storage: ${objectStorageUrl}`);
+        } catch (uploadError) {
+          console.error('Profile picture upload error:', uploadError);
+          // Fallback to local storage
+          profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
+          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+        }
       }
       
       if (files.document && files.document[0]) {
-        profileData.document = `/uploads/${files.document[0].filename}`;
-        profileData.documentOriginal = files.document[0].originalname;
+        try {
+          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
+          const objectStorageUrl = await fileStorage.uploadFile(files.document[0].path, storageKey);
+          profileData.document = objectStorageUrl;
+          profileData.documentOriginal = files.document[0].originalname;
+          console.log(`Document uploaded to Object Storage: ${objectStorageUrl}`);
+        } catch (uploadError) {
+          console.error('Document upload error:', uploadError);
+          // Fallback to local storage
+          profileData.document = `/uploads/${files.document[0].filename}`;
+          profileData.documentOriginal = files.document[0].originalname;
+        }
       }
 
       const validatedData = insertProfileSchema.parse(profileData);
@@ -304,6 +357,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ]), async (req, res) => {
     try {
       const profileId = parseInt(req.params.id);
+      
+      // Get existing profile to manage old files
+      const existingProfile = await storage.getProfile(profileId);
+      if (!existingProfile) {
+        return res.status(404).json({ message: 'Profile not found' });
+      }
+      
       const profileData = {
         name: req.body.name,
         age: parseInt(req.body.age),
@@ -322,13 +382,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
-        profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
-        profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+        try {
+          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
+          const objectStorageUrl = await fileStorage.uploadFile(files.profilePicture[0].path, storageKey);
+          profileData.profilePicture = objectStorageUrl;
+          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+          
+          // Clean up old profile picture from Object Storage if it exists
+          if (existingProfile.profilePicture && existingProfile.profilePicture.startsWith('/api/files/')) {
+            const oldStorageKey = existingProfile.profilePicture.replace('/api/files/', '');
+            await fileStorage.deleteFile(oldStorageKey);
+          }
+          
+          console.log(`Profile picture updated in Object Storage: ${objectStorageUrl}`);
+        } catch (uploadError) {
+          console.error('Profile picture upload error:', uploadError);
+          // Fallback to local storage
+          profileData.profilePicture = `/uploads/${files.profilePicture[0].filename}`;
+          profileData.profilePictureOriginal = files.profilePicture[0].originalname;
+        }
       }
       
       if (files.document && files.document[0]) {
-        profileData.document = `/uploads/${files.document[0].filename}`;
-        profileData.documentOriginal = files.document[0].originalname;
+        try {
+          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
+          const objectStorageUrl = await fileStorage.uploadFile(files.document[0].path, storageKey);
+          profileData.document = objectStorageUrl;
+          profileData.documentOriginal = files.document[0].originalname;
+          
+          // Clean up old document from Object Storage if it exists
+          if (existingProfile.document && existingProfile.document.startsWith('/api/files/')) {
+            const oldStorageKey = existingProfile.document.replace('/api/files/', '');
+            await fileStorage.deleteFile(oldStorageKey);
+          }
+          
+          console.log(`Document updated in Object Storage: ${objectStorageUrl}`);
+        } catch (uploadError) {
+          console.error('Document upload error:', uploadError);
+          // Fallback to local storage
+          profileData.document = `/uploads/${files.document[0].filename}`;
+          profileData.documentOriginal = files.document[0].originalname;
+        }
       }
 
       const updatedProfile = await storage.updateProfile(profileId, profileData);
@@ -348,10 +442,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/profiles/:id', requireAuth, async (req, res) => {
     try {
       const profileId = parseInt(req.params.id);
+      
+      // Get profile to clean up associated files
+      const profile = await storage.getProfile(profileId);
+      if (!profile) {
+        return res.status(404).json({ message: 'Profile not found' });
+      }
+      
+      // Clean up files from Object Storage
+      if (profile.profilePicture && profile.profilePicture.startsWith('/api/files/')) {
+        const storageKey = profile.profilePicture.replace('/api/files/', '');
+        await fileStorage.deleteFile(storageKey);
+        console.log(`Cleaned up profile picture from Object Storage: ${storageKey}`);
+      }
+      
+      if (profile.document && profile.document.startsWith('/api/files/')) {
+        const storageKey = profile.document.replace('/api/files/', '');
+        await fileStorage.deleteFile(storageKey);
+        console.log(`Cleaned up document from Object Storage: ${storageKey}`);
+      }
+      
       const success = await storage.deleteProfile(profileId);
       
       if (!success) {
-        return res.status(404).json({ message: 'Profile not found' });
+        return res.status(500).json({ message: 'Failed to delete profile from database' });
       }
       
       res.json({ message: 'Profile deleted successfully' });

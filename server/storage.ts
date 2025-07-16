@@ -1,6 +1,7 @@
 import { users, profiles, matches, customOptions, type User, type InsertUser, type Profile, type InsertProfile, type Match, type InsertMatch, type CustomOption, type InsertCustomOption } from "@shared/schema";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
+import { Client as ObjectStorageClient } from "@replit/object-storage";
 
 export interface IStorage {
   // User methods
