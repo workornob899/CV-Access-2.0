@@ -47,6 +47,30 @@ export class FileStorageService {
   }
 
   /**
+   * Upload a file buffer to Object Storage
+   * @param buffer File buffer
+   * @param storageKey Key to store the file under
+   * @returns Promise<string> - The Object Storage URL
+   */
+  async uploadFromBuffer(buffer: Buffer, storageKey: string): Promise<string> {
+    try {
+      console.log(`Uploading file buffer to Object Storage as ${storageKey}`);
+      
+      // Upload buffer to Object Storage
+      await this.client.uploadFromBytes(storageKey, buffer);
+      
+      // Return the Object Storage URL
+      const url = `/api/files/${storageKey}`;
+      console.log(`File uploaded successfully: ${url}`);
+      
+      return url;
+    } catch (error) {
+      console.error(`Failed to upload file buffer:`, error);
+      throw new Error(`File upload failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Download a file from Object Storage
    * @param storageKey Key of the file in Object Storage
    * @returns Promise<Buffer> - The file data

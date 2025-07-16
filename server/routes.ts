@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   // Static file serving removed - using Cloudinary for file storage
 
-  // Serve files from Object Storage
+  // Serve files from Object Storage and handle mock URLs
   app.get('/api/files/:storageKey(*)', async (req, res) => {
     try {
       const storageKey = req.params.storageKey;
@@ -84,6 +84,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`Failed to serve file ${req.params.storageKey}:`, error);
       res.status(404).json({ message: 'File not found' });
+    }
+  });
+
+  // Serve profile pictures and documents directly
+  app.get('/api/serve-file/:type/:id', async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      const profileId = parseInt(id);
+      
+      const profile = await storageInstance.getProfile(profileId);
+      if (!profile) {
+        return res.status(404).json({ message: 'Profile not found' });
+      }
+      
+      let fileUrl = '';
+      let fileName = '';
+      
+      if (type === 'profile-picture' && profile.profilePicture) {
+        fileUrl = profile.profilePicture;
+        fileName = profile.profilePictureOriginal || `profile_${profileId}.jpg`;
+      } else if (type === 'document' && profile.document) {
+        fileUrl = profile.document;
+        fileName = profile.documentOriginal || `document_${profileId}.pdf`;
+      } else {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Check if it's a mock URL or actual file
+      if (fileUrl.includes('cloudinary.com/demo') || fileUrl.includes('res.cloudinary.com/demo')) {
+        // Return a placeholder response for mock URLs
+        return res.status(404).json({ message: 'File not available in development mode' });
+      }
+      
+      // If it's a real Cloudinary URL, redirect to it
+      if (fileUrl.includes('cloudinary.com')) {
+        return res.redirect(fileUrl);
+      }
+      
+      // Otherwise, serve from object storage
+      // Extract storage key from URL
+      const storageKey = fileUrl.replace('/api/files/', '');
+      const fileData = await fileStorage.downloadFile(storageKey);
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      
+      // Set content type based on extension
+      let contentType = 'application/octet-stream';
+      if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+      else if (ext === 'png') contentType = 'image/png';
+      else if (ext === 'gif') contentType = 'image/gif';
+      else if (ext === 'pdf') contentType = 'application/pdf';
+      else if (ext === 'doc') contentType = 'application/msword';
+      else if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      
+      if (type === 'document') {
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      }
+      
+      res.send(fileData);
+      
+    } catch (error) {
+      console.error('File serving error:', error);
+      res.status(500).json({ message: 'Failed to serve file' });
     }
   });
 
@@ -113,7 +178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'No document found for this profile' });
       }
       
-      // Handle Cloudinary URLs - redirect to the direct URL
+      // Check if it's a mock URL
+      if (profile.document.includes('cloudinary.com/demo') || profile.document.includes('res.cloudinary.com/demo')) {
+        return res.status(404).json({ message: 'Document not available in development mode' });
+      }
+      
+      // Handle real Cloudinary URLs - redirect to the direct URL
       if (profile.document.includes('cloudinary.com')) {
         const originalName = profile.documentOriginal || `document_${profile.id}`;
         
@@ -121,9 +191,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.redirect(profile.document);
         console.log(`Document download redirected to Cloudinary: ${profile.document}`);
       } else {
-        // Legacy support - shouldn't be reached in production
-        console.log(`Legacy document URL not supported: ${profile.document}`);
-        return res.status(404).json({ message: 'Document file not found' });
+        // Handle object storage files
+        try {
+          // Extract storage key from URL
+          const storageKey = profile.document.replace('/api/files/', '');
+          const fileData = await fileStorage.downloadFile(storageKey);
+          const fileName = profile.documentOriginal || `document_${profile.id}.pdf`;
+          
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+          res.send(fileData);
+        } catch (error) {
+          console.log(`Failed to serve document from storage: ${profile.document}`);
+          return res.status(404).json({ message: 'Document file not found' });
+        }
       }
       
     } catch (error) {
@@ -248,19 +329,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         documentOriginal: null as string | null,
       };
 
-      // Handle file uploads to Cloudinary
+      // Handle file uploads to Object Storage
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       
       if (files.profilePicture && files.profilePicture[0]) {
         try {
-          const cloudinaryUrl = await cloudinaryService.uploadFile(
+          const storageKey = fileStorage.generateStorageKey(files.profilePicture[0].originalname, 'profile');
+          const fileUrl = await fileStorage.uploadFromBuffer(
             files.profilePicture[0].buffer,
-            'profile-pictures',
-            files.profilePicture[0].originalname
+            storageKey
           );
-          profileData.profilePicture = cloudinaryUrl;
+          profileData.profilePicture = fileUrl;
           profileData.profilePictureOriginal = files.profilePicture[0].originalname;
-          console.log(`Profile picture uploaded to Cloudinary: ${cloudinaryUrl}`);
+          console.log(`Profile picture uploaded to Object Storage: ${fileUrl}`);
         } catch (uploadError) {
           console.error('Profile picture upload error:', uploadError);
           throw new Error('Failed to upload profile picture');
@@ -269,14 +350,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (files.document && files.document[0]) {
         try {
-          const cloudinaryUrl = await cloudinaryService.uploadFile(
+          const storageKey = fileStorage.generateStorageKey(files.document[0].originalname, 'document');
+          const fileUrl = await fileStorage.uploadFromBuffer(
             files.document[0].buffer,
-            'documents',
-            files.document[0].originalname
+            storageKey
           );
-          profileData.document = cloudinaryUrl;
+          profileData.document = fileUrl;
           profileData.documentOriginal = files.document[0].originalname;
-          console.log(`Document uploaded to Cloudinary: ${cloudinaryUrl}`);
+          console.log(`Document uploaded to Object Storage: ${fileUrl}`);
         } catch (uploadError) {
           console.error('Document upload error:', uploadError);
           throw new Error('Failed to upload document');
