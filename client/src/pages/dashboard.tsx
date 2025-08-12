@@ -596,7 +596,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b lg:ml-64">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
             <Button
@@ -637,7 +637,7 @@ export default function Dashboard() {
         />
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 lg:ml-64">
           <div className="max-w-7xl mx-auto">
             {/* Dashboard Section */}
             {activeSection === "dashboard" && (

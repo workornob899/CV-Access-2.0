@@ -32,7 +32,7 @@ export function Sidebar({ isOpen, onClose, activeSection, onSectionChange }: Sid
         className={cn(
           "fixed top-0 left-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 z-50",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:relative lg:translate-x-0 lg:z-auto"
+          "lg:translate-x-0 lg:z-50"
         )}
       >
         <div className="p-4 border-b lg:hidden">
