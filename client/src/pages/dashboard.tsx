@@ -44,6 +44,7 @@ export default function Dashboard() {
     date: "",
   });
   const [profileIdSearch, setProfileIdSearch] = useState("");
+  const [globalSearch, setGlobalSearch] = useState("");
   const [profileManagementSearch, setProfileManagementSearch] = useState("");
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -152,27 +153,7 @@ export default function Dashboard() {
     refetchOnWindowFocus: false,
   });
 
-  const { data: searchResults = [], isLoading: searchLoading, error: searchError } = useQuery({
-    queryKey: ["/api/profiles/search", searchFilters],
-    enabled: !!user && Object.values(searchFilters).some(value => value && value !== "all" && value !== ""),
-    retry: 1,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      Object.entries(searchFilters).forEach(([key, value]) => {
-        if (value && value !== "all" && value !== "") {
-          params.append(key, value);
-        }
-      });
-      const response = await fetch(`/api/profiles/search?${params}`, {
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to search profiles");
-      }
-      return response.json();
-    },
-  });
+
 
   // Mutations
   const addProfileMutation = useMutation({
@@ -373,9 +354,7 @@ export default function Dashboard() {
     addProfileMutation.mutate(formData);
   };
 
-  const handleSearch = () => {
-    // Search is handled automatically by the query
-  };
+
 
   const handleDownload = async (profile: Profile) => {
     try {
@@ -577,14 +556,26 @@ export default function Dashboard() {
     updateProfileMutation.mutate({ id: editingProfile.id, formData });
   };
 
-  // Profile ID search functionality
-  const profileIdSearchResults = profileIdSearch.trim() 
-    ? profiles.filter(profile => 
-        profile.profileId?.toLowerCase().includes(profileIdSearch.toLowerCase().trim())
-      )
-    : [];
+  // Global search functionality that searches all profile fields
+  const globalSearchResults = globalSearch.trim()
+    ? profiles.filter(profile => {
+        const searchTerm = globalSearch.toLowerCase().trim();
+        return (
+          profile.name?.toLowerCase().includes(searchTerm) ||
+          profile.profileId?.toLowerCase().includes(searchTerm) ||
+          profile.profession?.toLowerCase().includes(searchTerm) ||
+          profile.qualification?.toLowerCase().includes(searchTerm) ||
+          profile.gender?.toLowerCase().includes(searchTerm) ||
+          profile.maritalStatus?.toLowerCase().includes(searchTerm) ||
+          profile.religion?.toLowerCase().includes(searchTerm) ||
+          profile.height?.toLowerCase().includes(searchTerm) ||
+          profile.age?.toString().includes(searchTerm) ||
+          profile.birthYear?.toString().includes(searchTerm)
+        );
+      })
+    : profiles;
 
-  // Profile Management search functionality
+  // Profile Management search functionality  
   const profileManagementResults = profileManagementSearch.trim()
     ? profiles.filter(profile => 
         profile.name.toLowerCase().includes(profileManagementSearch.toLowerCase()) ||
@@ -594,14 +585,12 @@ export default function Dashboard() {
       )
     : profiles;
 
-  const displayedProfiles = profileIdSearch.trim() 
-    ? profileIdSearchResults
-    : Object.values(searchFilters).some(value => value && value !== "all" && value !== "") 
-      ? searchResults 
-      : profiles;
+  const displayedProfiles = globalSearch.trim() 
+    ? globalSearchResults
+    : profiles;
 
   // Error handling
-  const hasError = profilesError || statsError || searchError;
+  const hasError = profilesError || statsError;
   const errorMessage = hasError ? "Failed to load data. Please try refreshing the page." : null;
 
   return (
@@ -789,205 +778,56 @@ export default function Dashboard() {
                   </Card>
                 )}
 
-                {/* Filter Panel */}
+                {/* Search Panel */}
                 <Card className="card-shadow">
                   <CardHeader>
                     <CardTitle className="text-2xl text-gray-800 flex items-center">
                       <Search className="w-6 h-6 mr-2" />
-                      Filter Profiles
+                      Search Profiles
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Profile ID</Label>
-                        <Input
-                          placeholder="Enter Profile ID (e.g., GB-47805)"
-                          value={profileIdSearch}
-                          onChange={(e) => setProfileIdSearch(e.target.value)}
-                          className="w-full"
-                        />
+                        <Label className="text-sm font-medium text-gray-700">Search all profile information</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <Input
+                            placeholder="Search by name, profile ID, profession, age, religion, etc..."
+                            value={globalSearch}
+                            onChange={(e) => setGlobalSearch(e.target.value)}
+                            className="pl-10 w-full"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                // Search happens automatically via state change
+                              }
+                            }}
+                          />
+                        </div>
+                        {globalSearch.trim() && (
+                          <p className="text-sm text-gray-600">
+                            Found {globalSearchResults.length} profile{globalSearchResults.length !== 1 ? 's' : ''} matching "{globalSearch}"
+                          </p>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Date</Label>
-                        <Input
-                          type="date"
-                          value={searchFilters.date}
-                          onChange={(e) =>
-                            setSearchFilters({ ...searchFilters, date: e.target.value })
-                          }
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Gender</Label>
-                        <Select
-                          value={searchFilters.gender}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, gender: value })
-                          }
+                      
+                      {globalSearch.trim() && (
+                        <Button
+                          variant="outline"
+                          onClick={() => setGlobalSearch("")}
+                          className="px-4 py-2"
                         >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="All Genders" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Genders</SelectItem>
-                            {(dynamicOptions.gender || []).filter(Boolean).map((gender, index) => (
-                              <SelectItem key={`gender-${index}-${gender}`} value={gender}>
-                                {gender}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Profession</Label>
-                        <Select
-                          value={searchFilters.profession}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, profession: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Profession" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Professions</SelectItem>
-                            {(dynamicOptions.profession || []).filter(Boolean).map((profession, index) => (
-                              <SelectItem key={`profession-${index}-${profession}`} value={profession}>
-                                {profession}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Marital Status</Label>
-                        <Select
-                          value={searchFilters.maritalStatus}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, maritalStatus: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Marital Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Marital Status</SelectItem>
-                            {(dynamicOptions.maritalStatus || []).filter(Boolean).map((maritalStatus, index) => (
-                              <SelectItem key={`maritalStatus-${index}-${maritalStatus}`} value={maritalStatus}>
-                                {maritalStatus}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Religion</Label>
-                        <Select
-                          value={searchFilters.religion}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, religion: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Religion" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Religions</SelectItem>
-                            {(dynamicOptions.religion || []).filter(Boolean).map((religion, index) => (
-                              <SelectItem key={`religion-${index}-${religion}`} value={religion}>
-                                {religion}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Birth Year</Label>
-                        <Select
-                          value={searchFilters.birthYear}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, birthYear: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Birth Year" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Birth Years</SelectItem>
-                            {(dynamicOptions.birthYear || []).filter(Boolean).map((year, index) => (
-                              <SelectItem key={`birthYear-${index}-${year}`} value={year}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-700">Age</Label>
-                        <Select
-                          value={searchFilters.age}
-                          onValueChange={(value) =>
-                            setSearchFilters({ ...searchFilters, age: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Age" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Ages</SelectItem>
-                            {(dynamicOptions.age || []).filter(Boolean).map((age, index) => (
-                              <SelectItem key={`age-${index}-${age}`} value={age}>
-                                {age}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex items-center justify-between">
-                      <Button 
-                        onClick={handleSearch} 
-                        className="btn-primary px-6 py-2" 
-                        disabled={searchLoading}
-                      >
-                        <Search className="w-4 h-4 mr-2" />
-                        {searchLoading ? "Searching..." : "Search Profiles"}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSearchFilters({
-                            gender: "all",
-                            profession: "all",
-                            birthYear: "all",
-                            age: "all",
-                            maritalStatus: "all",
-                            religion: "all",
-                            date: "",
-                          });
-                          queryClient.invalidateQueries({ queryKey: ["/api/profiles"] });
-                        }}
-                        className="px-4 py-2"
-                      >
-                        Clear Filters
-                      </Button>
+                          Clear Search
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Profiles Grid */}
                 <div className="space-y-6">
-                  {profilesLoading || searchLoading ? (
+                  {profilesLoading ? (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {[...Array(6)].map((_, i) => (
                         <Card key={i} className="animate-pulse">
@@ -1020,8 +860,8 @@ export default function Dashboard() {
                           No profiles found
                         </h3>
                         <p className="text-gray-500 mb-4">
-                          {Object.values(searchFilters).some(value => value && value !== "all")
-                            ? "Try adjusting your search filters to find more profiles"
+                          {globalSearch.trim()
+                            ? "No profiles match your search. Try different keywords or clear the search."
                             : "Add some profiles to get started with the matching system"}
                         </p>
                         <Button 
